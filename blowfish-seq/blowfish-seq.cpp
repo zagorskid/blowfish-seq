@@ -399,11 +399,16 @@ void blowfish_free(blowfish_context *ctx)
 		return;
 }
 
-/*
-* Blowfish key schedule
+/**
+* \brief          Blowfish key schedule
+*
+* \param ctx      Blowfish context to be initialized
+* \param key      encryption key
+* \param keysize  must be between 32 and 448 bits
+*
+* \return         0 if successful, or POLARSSL_ERR_BLOWFISH_INVALID_KEY_LENGTH
 */
-int blowfish_setkey(blowfish_context *ctx, const unsigned char *key,
-	unsigned int keysize)
+int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned int keysize)
 {
 	unsigned int i, j, k;
 	uint32_t data, datal, datar;
@@ -457,8 +462,15 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key,
 	return(0);
 }
 
-/*
-* Blowfish-ECB block encryption/decryption
+/**
+* \brief          Blowfish-ECB block encryption/decryption
+*
+* \param ctx      Blowfish context
+* \param mode     BLOWFISH_ENCRYPT or BLOWFISH_DECRYPT
+* \param input    8-byte input block
+* \param output   8-byte output block
+*
+* \return         0 if successful
 */
 int blowfish_crypt_ecb(blowfish_context *ctx,
 	int mode,
@@ -492,8 +504,38 @@ int main(int argc, char* argv[])
 {
 	cout << "Hello" << endl;
 
+	const unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
+	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
+	unsigned char out2[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
 
+	blowfish_context ctx;
+	const unsigned char key[32] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
+	unsigned int keysize = 32;
 
+	blowfish_init(&ctx);
+	blowfish_setkey(&ctx, key, keysize);
+
+	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
+	{
+		cout << in[i];
+	}
+	cout << endl;
+
+	blowfish_crypt_ecb(&ctx, BLOWFISH_ENCRYPT, in, out);
+	
+	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
+	{
+		cout << out[i];
+	}
+	cout << endl;
+
+	blowfish_crypt_ecb(&ctx, BLOWFISH_DECRYPT, out, out2);
+
+	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
+	{
+		cout << out2[i];
+	}
+	cout << endl;
 
 	system("PAUSE");
 	return 0;
