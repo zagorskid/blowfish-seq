@@ -2,6 +2,7 @@
 #include <string>
 #include <fstream>
 #include <vector>
+#include <chrono>
 #include <inttypes.h>
 
 using namespace std;
@@ -15,7 +16,7 @@ using namespace std;
 #define S_ROWS				4
 #define S_COLUMNS			256	
 
-bool debug = true; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
+bool debug = false; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
 
 uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
 uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
@@ -519,11 +520,13 @@ void printBlock(const unsigned char *block)
 
 
 
-
-
-
 int main(int argc, char *argv[])
 {
+	// time measurement
+	auto timestampStart = chrono::high_resolution_clock::now();
+	using FpMilliseconds = chrono::duration<float, std::chrono::milliseconds::period>;
+	static_assert(chrono::treat_as_floating_point<FpMilliseconds::rep>::value, "Rep required to be floating point");
+
 	// key definition
 	const unsigned char key[32] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 	unsigned int keysize = 32;
@@ -531,20 +534,25 @@ int main(int argc, char *argv[])
 	// subkeys preparation
 	blowfish_setkey(P, S, key, keysize);
 
+	auto timestampSubkeysGenerated = chrono::high_resolution_clock::now(); // time capture	
+	auto subkeysGeneration = FpMilliseconds(timestampSubkeysGenerated - timestampStart);
+	if (debug)
+		cout << "Subkeys generated in:\t" << subkeysGeneration.count() << " ms." << endl;
+	else
+		cout << subkeysGeneration.count() << ";";
+
 	// input and output blocks preparation
 	unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
 	
 
 	// config input/output files:
-	string plainFilename = "input-1k.txt";
+	string plainFilename = "input-32m.txt";
 	if (argc > 1) 
 	{ 
 		plainFilename = argv[1];
 	}
-	string cryptedFilename = "crypted-" + plainFilename;
-
-	
+	string cryptedFilename = "crypted-" + plainFilename;	
 
 
 	// load file into memory
@@ -552,9 +560,6 @@ int main(int argc, char *argv[])
 	{
 		cout << "Blowfish encryption of file: " << plainFilename << "." << endl;
 	}
-	
-
-	// clock_t begin_load = clock(); // time capture
 
 	ifstream input;
 	unsigned long int fileLength = 0;
@@ -596,15 +601,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	auto timestampFileLoaded = chrono::high_resolution_clock::now(); // time capture	
+	auto fileLoading = FpMilliseconds(timestampFileLoaded - timestampSubkeysGenerated);
+
 	if (debug)
 	{
-		//cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+		cout << "File loaded in\t\t" << fileLoading.count() << " ms." << endl;
 		cout << "File size: \t\t" << extendedFileLength << " bytes." << endl;
-	}	
+	}
+	else
+		cout << fileLoading.count() << ";";		
 	
 
-	// ENCRYPTION
-	//clock_t begin_encryption = clock();  // time capture		
+	// ENCRYPTION		
 	outputText = new char[extendedFileLength];
 	for (unsigned long int i = 0; i < extendedFileLength; i += 8)
 	{
@@ -624,10 +633,15 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	//cout << "Text encrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
+	auto timestampEncrypted = chrono::high_resolution_clock::now(); // time capture	
+	auto encryptionTime = FpMilliseconds(timestampEncrypted - timestampFileLoaded);
 
-	// Save result to file
-	//clock_t begin_saving = clock();  // time capture		
+	if (debug)
+		cout << "Text encrypted in\t" << encryptionTime.count() << " ms." << endl;
+	else
+		cout << encryptionTime.count() << ";";
+
+	// Save result to file			
 	ofstream output;
 	output.open(cryptedFilename, ios::binary);
 	if (!output.is_open())
@@ -638,21 +652,31 @@ int main(int argc, char *argv[])
 	}
 	output.write(outputText, extendedFileLength);
 	output.close();
-	//cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
 
+	auto timestampFileSaved = chrono::high_resolution_clock::now(); // time capture	
+	auto fileSaving = FpMilliseconds(timestampFileSaved - timestampEncrypted);
+
+	if (debug)
+		cout << "File saved in\t\t" << fileSaving.count() << " ms." << endl;
+	else
+		cout << fileSaving.count() << ";";
+
+	auto timestampStop = std::chrono::high_resolution_clock::now();
+	auto totalTime = FpMilliseconds(timestampStop - timestampStart);
+	
 	// SUMMARY
 	if (debug)
-	{
-		//cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
-		cout << "File crypted..." << endl;
-	}
+		cout << "Total time elapsed:\t" << totalTime.count() << " ms." << endl;
+	else
+		cout << totalTime.count() << ";" << endl;
 
 
 	delete[] outputText;
 	delete[] inputText;
 
+	if (debug)
+		system("PAUSE");
 
-	system("PAUSE");
 	return 0;
 }
 
