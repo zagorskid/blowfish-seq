@@ -1,6 +1,8 @@
 #include <iostream>
+#include <string>
+#include <fstream>
+#include <vector>
 #include <inttypes.h>
-#include <string.h>
 
 using namespace std;
 
@@ -521,9 +523,7 @@ void printBlock(const unsigned char *block)
 
 int main(int argc, char* argv[])
 {
-	cout << "Hello" << endl;
-
-	const unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
+	unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
 	unsigned char out2[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
 
@@ -532,16 +532,116 @@ int main(int argc, char* argv[])
 
 	blowfish_setkey(P, S, key, keysize);
 
-	printBlock(in);
-	
-	blowfish_encrypt(P, S, in, out);
-	
-	printBlock(out);
-	
-	blowfish_decrypt(P, S, out, out2);
 
+	printBlock(in);	
+	blowfish_encrypt(P, S, in, out);	
+	printBlock(out);	
+	blowfish_decrypt(P, S, out, out2);
 	printBlock(out2);
+
+	cout << "==========================================" << endl;
+
+
+	// config:
+	string plainFilename = "input-1k.txt";
+	string cryptedFilename = "crypted-" + plainFilename;
+
+	// load file into memory
+	cout << "Blowfish encryption of file: " << plainFilename << "." << endl;
+
+	// clock_t begin_load = clock(); // time capture
+
+	ifstream input;
+	unsigned long int fileLength = 0;
+	char * inputText;
+	char * outputText;
+
+
+	input.open(plainFilename, ios::binary); // open input file
+	if (!input.is_open())
+	{
+		cout << "Error opening input file!" << endl;
+		system("PAUSE");
+		return 1;
+	}
+
+
+	input.seekg(0, input.end);			// go to the end
+	fileLength = input.tellg();			// report location (this is the length)
+	int extendedFileLength = fileLength;
+	int fileLengthDifference = 0;
+
+	// round up to 8-bit block multiply
+	if (fileLength % 8 != 0)
+	{
+		int tmp = fileLength / 8 + 1;
+		extendedFileLength = tmp * 8;
+		fileLengthDifference = extendedFileLength - fileLength;
+	}
+
+	input.seekg(0, input.beg);			// go back to the beginning
+	inputText = new char[extendedFileLength + 1];	// allocate memory for a buffer of appropriate dimension
+	input.read(inputText, fileLength);	// read the whole file into the buffer
+	input.close();						// close file handle
+
+	// fill empty spaces
+	if (fileLengthDifference > 0)
+	{
+		for (unsigned long int i = extendedFileLength; i >= fileLength; --i)
+		{
+			inputText[i] = ' ';
+		}
+	}
+
+
+	//cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+	cout << "File size: \t\t" << extendedFileLength << " bytes." << endl;
 	
+
+	// ENCRYPTION
+	//clock_t begin_encryption = clock();  // time capture		
+	outputText = new char[extendedFileLength];
+	for (unsigned long int i = 0; i < extendedFileLength; i += 8)
+	{
+		// input block preparation
+		for (int j = 0; j < 8; ++j)
+		{
+			in[j] = inputText[i + j];
+		}
+
+		// encryption of block
+		//blowfish_encrypt(inputBlock, outputBlock, &key);
+		blowfish_encrypt(P, S, in, out);
+
+		// output text prerparation
+		for (int j = 0; j < 8; ++j)
+		{
+			outputText[i + j] = out[j];
+		}
+	}
+	//cout << "Text encrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
+
+	// Save result to file
+	//clock_t begin_saving = clock();  // time capture		
+	ofstream output;
+	output.open(cryptedFilename, ios::binary);
+	if (!output.is_open())
+	{
+		cout << "Error opening file to save results!" << endl;
+		system("PAUSE");
+		return 1;
+	}
+	output.write(outputText, extendedFileLength);
+	output.close();
+	//cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
+
+	// SUMMARY
+	//cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+	cout << "File crypted..." << endl;
+
+
+	delete[] outputText;
+	delete[] inputText;
 
 
 	system("PAUSE");

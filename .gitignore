@@ -229,3 +229,6 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+blowfish-seq/input-*.txt
+blowfish-seq/*-input-*.txt
