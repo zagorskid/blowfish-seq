@@ -504,6 +504,15 @@ int blowfish_setkey(uint32_t *P, uint32_t *S, const unsigned char *key, unsigned
 	return(0);
 }
 
+void printBlock(const unsigned char *block)
+{
+	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
+	{
+		cout << block[i];
+	}
+	cout << endl;
+}
+
 
 
 
@@ -523,31 +532,15 @@ int main(int argc, char* argv[])
 
 	blowfish_setkey(P, S, key, keysize);
 
-	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
-	{
-		cout << in[i];
-	}
-	cout << endl;
-
-
+	printBlock(in);
+	
 	blowfish_encrypt(P, S, in, out);
 	
+	printBlock(out);
 	
-	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
-	{
-		cout << out[i];
-	}
-	cout << endl;
-	
-		
 	blowfish_decrypt(P, S, out, out2);
 
-
-	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
-	{
-		cout << out2[i];
-	}
-	cout << endl;
+	printBlock(out2);
 	
 
 
