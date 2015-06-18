@@ -15,7 +15,7 @@ using namespace std;
 #define S_ROWS				4
 #define S_COLUMNS			256	
 
-
+bool debug = true; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
 
 uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
 uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
@@ -506,6 +506,7 @@ int blowfish_setkey(uint32_t *P, uint32_t *S, const unsigned char *key, unsigned
 	return(0);
 }
 
+
 void printBlock(const unsigned char *block)
 {
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
@@ -521,42 +522,45 @@ void printBlock(const unsigned char *block)
 
 
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
-	unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
-	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
-	unsigned char out2[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
-
+	// key definition
 	const unsigned char key[32] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 	unsigned int keysize = 32;
 
+	// subkeys preparation
 	blowfish_setkey(P, S, key, keysize);
 
+	// input and output blocks preparation
+	unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
+	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
+	
 
-	printBlock(in);	
-	blowfish_encrypt(P, S, in, out);	
-	printBlock(out);	
-	blowfish_decrypt(P, S, out, out2);
-	printBlock(out2);
-
-	cout << "==========================================" << endl;
-
-
-	// config:
+	// config input/output files:
 	string plainFilename = "input-1k.txt";
+	if (argc > 1) 
+	{ 
+		plainFilename = argv[1];
+	}
 	string cryptedFilename = "crypted-" + plainFilename;
 
+	
+
+
 	// load file into memory
-	cout << "Blowfish encryption of file: " << plainFilename << "." << endl;
+	if (debug)
+	{
+		cout << "Blowfish encryption of file: " << plainFilename << "." << endl;
+	}
+	
 
 	// clock_t begin_load = clock(); // time capture
 
 	ifstream input;
 	unsigned long int fileLength = 0;
-	char * inputText;
-	char * outputText;
-
-
+	char *inputText;
+	char *outputText;
+	
 	input.open(plainFilename, ios::binary); // open input file
 	if (!input.is_open())
 	{
@@ -565,13 +569,12 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-
 	input.seekg(0, input.end);			// go to the end
 	fileLength = input.tellg();			// report location (this is the length)
 	int extendedFileLength = fileLength;
 	int fileLengthDifference = 0;
 
-	// round up to 8-bit block multiply
+	// round up to 8-bit block multiply if necessary
 	if (fileLength % 8 != 0)
 	{
 		int tmp = fileLength / 8 + 1;
@@ -593,9 +596,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
-
-	//cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
-	cout << "File size: \t\t" << extendedFileLength << " bytes." << endl;
+	if (debug)
+	{
+		//cout << "File loaded in\t\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+		cout << "File size: \t\t" << extendedFileLength << " bytes." << endl;
+	}	
 	
 
 	// ENCRYPTION
@@ -610,7 +615,6 @@ int main(int argc, char* argv[])
 		}
 
 		// encryption of block
-		//blowfish_encrypt(inputBlock, outputBlock, &key);
 		blowfish_encrypt(P, S, in, out);
 
 		// output text prerparation
@@ -619,6 +623,7 @@ int main(int argc, char* argv[])
 			outputText[i + j] = out[j];
 		}
 	}
+
 	//cout << "Text encrypted in\t" << double(clock() - begin_encryption) / CLOCKS_PER_SEC << " s" << endl;
 
 	// Save result to file
@@ -636,8 +641,11 @@ int main(int argc, char* argv[])
 	//cout << "File saved in\t\t" << double(clock() - begin_saving) / CLOCKS_PER_SEC << " s" << endl;
 
 	// SUMMARY
-	//cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
-	cout << "File crypted..." << endl;
+	if (debug)
+	{
+		//cout << "Total time elapsed:\t" << double(clock() - begin_load) / CLOCKS_PER_SEC << " s" << endl;
+		cout << "File crypted..." << endl;
+	}
 
 
 	delete[] outputText;
