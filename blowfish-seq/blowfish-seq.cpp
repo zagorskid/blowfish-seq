@@ -388,10 +388,6 @@ static void blowfish_dec(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
 	*xr = Xr;
 }
 
-void blowfish_init(blowfish_context *ctx)
-{
-	memset(ctx, 0, sizeof(blowfish_context));
-}
 
 void blowfish_free(blowfish_context *ctx)
 {
@@ -410,6 +406,10 @@ void blowfish_free(blowfish_context *ctx)
 */
 int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned int keysize)
 {
+	// init blowfish context
+	memset(ctx, 0, sizeof(blowfish_context));
+
+
 	unsigned int i, j, k;
 	uint32_t data, datal, datar;
 
@@ -512,7 +512,6 @@ int main(int argc, char* argv[])
 	const unsigned char key[32] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 	unsigned int keysize = 32;
 
-	blowfish_init(&ctx);
 	blowfish_setkey(&ctx, key, keysize);
 
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
@@ -536,6 +535,11 @@ int main(int argc, char* argv[])
 		cout << out2[i];
 	}
 	cout << endl;
+
+
+
+	// free memory!!!!!!!!!
+	//TODO
 
 	system("PAUSE");
 	return 0;
