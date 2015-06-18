@@ -4,12 +4,14 @@
 
 using namespace std;
 
-#define BLOWFISH_ENCRYPT     1
-#define BLOWFISH_DECRYPT     0
-#define BLOWFISH_MAX_KEY     448
-#define BLOWFISH_MIN_KEY     32
-#define BLOWFISH_ROUNDS      16         /* Rounds to use */
-#define BLOWFISH_BLOCKSIZE   8          /* Blowfish uses 64 bit blocks */
+#define BLOWFISH_ENCRYPT	1
+#define BLOWFISH_DECRYPT	0
+#define BLOWFISH_MAX_KEY	448
+#define BLOWFISH_MIN_KEY	32
+#define BLOWFISH_ROUNDS		16         /* Rounds to use */
+#define BLOWFISH_BLOCKSIZE	8          /* Blowfish uses 64 bit blocks */
+#define S_ROWS				4
+#define S_COLUMNS			256	
 
 /**
 * Blowfish context structure
@@ -17,7 +19,7 @@ using namespace std;
 typedef struct
 {
 	uint32_t P[BLOWFISH_ROUNDS + 2];    /*  Blowfish round keys    */
-	uint32_t S[4][256];                 /*  key dependent S-boxes  */
+	uint32_t S[S_ROWS * S_COLUMNS];                 /*  key dependent S-boxes  */
 }
 blowfish_context;
 
@@ -41,7 +43,7 @@ blowfish_context;
     (b)[(i) + 3] = (unsigned char) ( (n)       );       \
 }
 
-static const uint32_t P[BLOWFISH_ROUNDS + 2] = {
+static const uint32_t Pvalues[BLOWFISH_ROUNDS + 2] = {
 	0x243F6A88L, 0x85A308D3L, 0x13198A2EL, 0x03707344L,
 	0xA4093822L, 0x299F31D0L, 0x082EFA98L, 0xEC4E6C89L,
 	0x452821E6L, 0x38D01377L, 0xBE5466CFL, 0x34E90C6CL,
@@ -49,7 +51,7 @@ static const uint32_t P[BLOWFISH_ROUNDS + 2] = {
 	0x9216D5D9L, 0x8979FB1BL
 };
 
-static const uint32_t S[4][256] = {
+static const uint32_t Svalues[4][256] = {
 		{ 0xD1310BA6L, 0x98DFB5ACL, 0x2FFD72DBL, 0xD01ADFB7L,
 		0xB8E1AFEDL, 0x6A267E96L, 0xBA7C9045L, 0xF12C7F99L,
 		0x24A19947L, 0xB3916CF7L, 0x0801F2E2L, 0x858EFC16L,
@@ -323,9 +325,9 @@ static uint32_t F(blowfish_context *ctx, uint32_t x)
 	b = (unsigned short)(x & 0xFF);
 	x >>= 8;
 	a = (unsigned short)(x & 0xFF);
-	y = ctx->S[0][a] + ctx->S[1][b];
-	y = y ^ ctx->S[2][c];
-	y = y + ctx->S[3][d];
+	y = ctx->S[0 * S_COLUMNS + a] + ctx->S[1 * S_COLUMNS + b];
+	y = y ^ ctx->S[2 * S_COLUMNS + c];
+	y = y + ctx->S[3 * S_COLUMNS + d];
 
 	return(y);
 }
@@ -424,7 +426,7 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 	for (i = 0; i < 4; i++)
 	{
 		for (j = 0; j < 256; j++)
-			ctx->S[i][j] = S[i][j];
+			ctx->S[i * S_COLUMNS + j] = Svalues[i][j];
 	}
 
 	j = 0;
@@ -437,7 +439,7 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 			if (j >= keysize)
 				j = 0;
 		}
-		ctx->P[i] = P[i] ^ data;
+		ctx->P[i] = Pvalues[i] ^ data;
 	}
 
 	datal = 0x00000000;
@@ -455,8 +457,8 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 		for (j = 0; j < 256; j += 2)
 		{
 			blowfish_enc(ctx, &datal, &datar);
-			ctx->S[i][j] = datal;
-			ctx->S[i][j + 1] = datar;
+			ctx->S[i * S_COLUMNS + j] = datal;
+			ctx->S[i * S_COLUMNS + (j + 1)] = datar;
 		}
 	}
 	return(0);
