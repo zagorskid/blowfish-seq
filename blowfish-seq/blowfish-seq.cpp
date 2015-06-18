@@ -13,15 +13,11 @@ using namespace std;
 #define S_ROWS				4
 #define S_COLUMNS			256	
 
-/**
-* Blowfish context structure
-*/
-typedef struct
-{
-	uint32_t P[BLOWFISH_ROUNDS + 2];    /*  Blowfish round keys    */
-	uint32_t S[S_ROWS * S_COLUMNS];                 /*  key dependent S-boxes  */
-}
-blowfish_context;
+
+
+uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
+uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
+
 
 
 /*
@@ -313,7 +309,7 @@ static const uint32_t Svalues[4][256] = {
 /*
 * F function
 */
-static uint32_t F(blowfish_context *ctx, uint32_t x)
+static uint32_t F(uint32_t *S, uint32_t x)
 {
 	unsigned short a, b, c, d;
 	uint32_t  y;
@@ -325,14 +321,14 @@ static uint32_t F(blowfish_context *ctx, uint32_t x)
 	b = (unsigned short)(x & 0xFF);
 	x >>= 8;
 	a = (unsigned short)(x & 0xFF);
-	y = ctx->S[0 * S_COLUMNS + a] + ctx->S[1 * S_COLUMNS + b];
-	y = y ^ ctx->S[2 * S_COLUMNS + c];
-	y = y + ctx->S[3 * S_COLUMNS + d];
+	y = S[0 * S_COLUMNS + a] + S[1 * S_COLUMNS + b];
+	y = y ^ S[2 * S_COLUMNS + c];
+	y = y + S[3 * S_COLUMNS + d];
 
 	return(y);
 }
 
-static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
+static void blowfish_enc(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
 {
 	uint32_t  Xl, Xr, temp;
 	short i;
@@ -342,8 +338,8 @@ static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
 
 	for (i = 0; i < BLOWFISH_ROUNDS; ++i)
 	{
-		Xl = Xl ^ ctx->P[i];
-		Xr = F(ctx, Xl) ^ Xr;
+		Xl = Xl ^ P[i];
+		Xr = F(S, Xl) ^ Xr;
 
 		temp = Xl;
 		Xl = Xr;
@@ -354,14 +350,14 @@ static void blowfish_enc(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
 	Xl = Xr;
 	Xr = temp;
 
-	Xr = Xr ^ ctx->P[BLOWFISH_ROUNDS];
-	Xl = Xl ^ ctx->P[BLOWFISH_ROUNDS + 1];
+	Xr = Xr ^ P[BLOWFISH_ROUNDS];
+	Xl = Xl ^ P[BLOWFISH_ROUNDS + 1];
 
 	*xl = Xl;
 	*xr = Xr;
 }
 
-static void blowfish_dec(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
+static void blowfish_dec(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
 {
 	uint32_t  Xl, Xr, temp;
 	short i;
@@ -371,8 +367,8 @@ static void blowfish_dec(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
 
 	for (i = BLOWFISH_ROUNDS + 1; i > 1; --i)
 	{
-		Xl = Xl ^ ctx->P[i];
-		Xr = F(ctx, Xl) ^ Xr;
+		Xl = Xl ^ P[i];
+		Xr = F(S, Xl) ^ Xr;
 
 		temp = Xl;
 		Xl = Xr;
@@ -383,35 +379,26 @@ static void blowfish_dec(blowfish_context *ctx, uint32_t *xl, uint32_t *xr)
 	Xl = Xr;
 	Xr = temp;
 
-	Xr = Xr ^ ctx->P[1];
-	Xl = Xl ^ ctx->P[0];
+	Xr = Xr ^ P[1];
+	Xl = Xl ^ P[0];
 
 	*xl = Xl;
 	*xr = Xr;
 }
 
 
-void blowfish_free(blowfish_context *ctx)
-{
-	if (ctx == NULL)
-		return;
-}
-
 /**
 * \brief          Blowfish key schedule
 *
-* \param ctx      Blowfish context to be initialized
+* \param P        P-array
+* \param S        S-array
 * \param key      encryption key
 * \param keysize  must be between 32 and 448 bits
 *
 * \return         0 if successful, or POLARSSL_ERR_BLOWFISH_INVALID_KEY_LENGTH
 */
-int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned int keysize)
+int blowfish_setkey(uint32_t *P, uint32_t *S, const unsigned char *key, unsigned int keysize)
 {
-	// init blowfish context
-	memset(ctx, 0, sizeof(blowfish_context));
-
-
 	unsigned int i, j, k;
 	uint32_t data, datal, datar;
 
@@ -426,7 +413,7 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 	for (i = 0; i < 4; i++)
 	{
 		for (j = 0; j < 256; j++)
-			ctx->S[i * S_COLUMNS + j] = Svalues[i][j];
+			S[i * S_COLUMNS + j] = Svalues[i][j];
 	}
 
 	j = 0;
@@ -439,7 +426,7 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 			if (j >= keysize)
 				j = 0;
 		}
-		ctx->P[i] = Pvalues[i] ^ data;
+		P[i] = Pvalues[i] ^ data;
 	}
 
 	datal = 0x00000000;
@@ -447,18 +434,18 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 
 	for (i = 0; i < BLOWFISH_ROUNDS + 2; i += 2)
 	{
-		blowfish_enc(ctx, &datal, &datar);
-		ctx->P[i] = datal;
-		ctx->P[i + 1] = datar;
+		blowfish_enc(P, S, &datal, &datar);
+		P[i] = datal;
+		P[i + 1] = datar;
 	}
 
 	for (i = 0; i < 4; i++)
 	{
 		for (j = 0; j < 256; j += 2)
 		{
-			blowfish_enc(ctx, &datal, &datar);
-			ctx->S[i * S_COLUMNS + j] = datal;
-			ctx->S[i * S_COLUMNS + (j + 1)] = datar;
+			blowfish_enc(P, S, &datal, &datar);
+			S[i * S_COLUMNS + j] = datal;
+			S[i * S_COLUMNS + (j + 1)] = datar;
 		}
 	}
 	return(0);
@@ -467,14 +454,15 @@ int blowfish_setkey(blowfish_context *ctx, const unsigned char *key, unsigned in
 /**
 * \brief          Blowfish-ECB block encryption/decryption
 *
-* \param ctx      Blowfish context
+* \param P        P-array
+* \param S        S-array
 * \param mode     BLOWFISH_ENCRYPT or BLOWFISH_DECRYPT
 * \param input    8-byte input block
 * \param output   8-byte output block
 *
 * \return         0 if successful
 */
-int blowfish_crypt_ecb(blowfish_context *ctx,
+int blowfish_crypt_ecb(uint32_t *P, uint32_t *S,
 	int mode,
 	const unsigned char input[BLOWFISH_BLOCKSIZE],
 	unsigned char output[BLOWFISH_BLOCKSIZE])
@@ -486,11 +474,11 @@ int blowfish_crypt_ecb(blowfish_context *ctx,
 
 	if (mode == BLOWFISH_DECRYPT)
 	{
-		blowfish_dec(ctx, &X0, &X1);
+		blowfish_dec(P, S, &X0, &X1);
 	}
 	else /* BLOWFISH_ENCRYPT */
 	{
-		blowfish_enc(ctx, &X0, &X1);
+		blowfish_enc(P, S, &X0, &X1);
 	}
 
 	PUT_UINT32_BE(X0, output, 0);
@@ -510,11 +498,10 @@ int main(int argc, char* argv[])
 	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
 	unsigned char out2[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
 
-	blowfish_context ctx;
 	const unsigned char key[32] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
 	unsigned int keysize = 32;
 
-	blowfish_setkey(&ctx, key, keysize);
+	blowfish_setkey(P, S, key, keysize);
 
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
 	{
@@ -522,7 +509,7 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
-	blowfish_crypt_ecb(&ctx, BLOWFISH_ENCRYPT, in, out);
+	blowfish_crypt_ecb(P, S, BLOWFISH_ENCRYPT, in, out);
 	
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
 	{
@@ -530,7 +517,7 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
-	blowfish_crypt_ecb(&ctx, BLOWFISH_DECRYPT, out, out2);
+	blowfish_crypt_ecb(P, S, BLOWFISH_DECRYPT, out, out2);
 
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
 	{
@@ -539,9 +526,6 @@ int main(int argc, char* argv[])
 	cout << endl;
 
 
-
-	// free memory!!!!!!!!!
-	//TODO
 
 	system("PAUSE");
 	return 0;
