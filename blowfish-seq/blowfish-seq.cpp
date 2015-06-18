@@ -328,7 +328,11 @@ static uint32_t F(uint32_t *S, uint32_t x)
 	return(y);
 }
 
-static void blowfish_enc(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
+
+/*
+* helper function for key generation, uses Blowfish encryption
+*/
+static void blowfish_key_enc(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
 {
 	uint32_t  Xl, Xr, temp;
 	short i;
@@ -357,13 +361,62 @@ static void blowfish_enc(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
 	*xr = Xr;
 }
 
-static void blowfish_dec(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
+
+/**
+* \brief          Blowfish-ECB block encryption
+*
+* \param P        P-array
+* \param S        S-array
+* \param input    8-byte input block
+* \param output   8-byte output block
+*
+*/
+static void blowfish_encrypt(uint32_t *P, uint32_t *S, const unsigned char input[BLOWFISH_BLOCKSIZE], unsigned char output[BLOWFISH_BLOCKSIZE])
+{	
+	uint32_t  Xl, Xr, temp;
+	short i;
+
+	GET_UINT32_BE(Xl, input, 0);
+	GET_UINT32_BE(Xr, input, 4);
+	
+	for (i = 0; i < BLOWFISH_ROUNDS; ++i)
+	{
+		Xl = Xl ^ P[i];
+		Xr = F(S, Xl) ^ Xr;
+
+		temp = Xl;
+		Xl = Xr;
+		Xr = temp;
+	}
+
+	temp = Xl;
+	Xl = Xr;
+	Xr = temp;
+
+	Xr = Xr ^ P[BLOWFISH_ROUNDS];
+	Xl = Xl ^ P[BLOWFISH_ROUNDS + 1];
+
+	PUT_UINT32_BE(Xl, output, 0);
+	PUT_UINT32_BE(Xr, output, 4);
+}
+
+
+/**
+* \brief          Blowfish-ECB block decryption
+*
+* \param P        P-array
+* \param S        S-array
+* \param input    8-byte input block
+* \param output   8-byte output block
+*
+*/
+static void blowfish_decrypt(uint32_t *P, uint32_t *S, const unsigned char input[BLOWFISH_BLOCKSIZE], unsigned char output[BLOWFISH_BLOCKSIZE])
 {
 	uint32_t  Xl, Xr, temp;
 	short i;
 
-	Xl = *xl;
-	Xr = *xr;
+	GET_UINT32_BE(Xl, input, 0);
+	GET_UINT32_BE(Xr, input, 4);
 
 	for (i = BLOWFISH_ROUNDS + 1; i > 1; --i)
 	{
@@ -382,8 +435,8 @@ static void blowfish_dec(uint32_t *P, uint32_t *S, uint32_t *xl, uint32_t *xr)
 	Xr = Xr ^ P[1];
 	Xl = Xl ^ P[0];
 
-	*xl = Xl;
-	*xr = Xr;
+	PUT_UINT32_BE(Xl, output, 0);
+	PUT_UINT32_BE(Xr, output, 4);
 }
 
 
@@ -434,7 +487,7 @@ int blowfish_setkey(uint32_t *P, uint32_t *S, const unsigned char *key, unsigned
 
 	for (i = 0; i < BLOWFISH_ROUNDS + 2; i += 2)
 	{
-		blowfish_enc(P, S, &datal, &datar);
+		blowfish_key_enc(P, S, &datal, &datar);
 		P[i] = datal;
 		P[i + 1] = datar;
 	}
@@ -443,7 +496,7 @@ int blowfish_setkey(uint32_t *P, uint32_t *S, const unsigned char *key, unsigned
 	{
 		for (j = 0; j < 256; j += 2)
 		{
-			blowfish_enc(P, S, &datal, &datar);
+			blowfish_key_enc(P, S, &datal, &datar);
 			S[i * S_COLUMNS + j] = datal;
 			S[i * S_COLUMNS + (j + 1)] = datar;
 		}
@@ -451,41 +504,8 @@ int blowfish_setkey(uint32_t *P, uint32_t *S, const unsigned char *key, unsigned
 	return(0);
 }
 
-/**
-* \brief          Blowfish-ECB block encryption/decryption
-*
-* \param P        P-array
-* \param S        S-array
-* \param mode     BLOWFISH_ENCRYPT or BLOWFISH_DECRYPT
-* \param input    8-byte input block
-* \param output   8-byte output block
-*
-* \return         0 if successful
-*/
-int blowfish_crypt_ecb(uint32_t *P, uint32_t *S,
-	int mode,
-	const unsigned char input[BLOWFISH_BLOCKSIZE],
-	unsigned char output[BLOWFISH_BLOCKSIZE])
-{
-	uint32_t X0, X1;
 
-	GET_UINT32_BE(X0, input, 0);
-	GET_UINT32_BE(X1, input, 4);
 
-	if (mode == BLOWFISH_DECRYPT)
-	{
-		blowfish_dec(P, S, &X0, &X1);
-	}
-	else /* BLOWFISH_ENCRYPT */
-	{
-		blowfish_enc(P, S, &X0, &X1);
-	}
-
-	PUT_UINT32_BE(X0, output, 0);
-	PUT_UINT32_BE(X1, output, 4);
-
-	return(0);
-}
 
 
 
@@ -509,22 +529,26 @@ int main(int argc, char* argv[])
 	}
 	cout << endl;
 
-	blowfish_crypt_ecb(P, S, BLOWFISH_ENCRYPT, in, out);
+
+	blowfish_encrypt(P, S, in, out);
+	
 	
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
 	{
 		cout << out[i];
 	}
 	cout << endl;
+	
+		
+	blowfish_decrypt(P, S, out, out2);
 
-	blowfish_crypt_ecb(P, S, BLOWFISH_DECRYPT, out, out2);
 
 	for (int i = 0; i < BLOWFISH_BLOCKSIZE; i++)
 	{
 		cout << out2[i];
 	}
 	cout << endl;
-
+	
 
 
 	system("PAUSE");
