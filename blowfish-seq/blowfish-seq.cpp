@@ -16,7 +16,7 @@ using namespace std;
 #define S_ROWS				4
 #define S_COLUMNS			256	
 
-bool debug = false; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
+bool debug = true; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
 
 uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
 uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
@@ -547,7 +547,7 @@ int main(int argc, char *argv[])
 	
 
 	// config input/output files:
-	string plainFilename = "input-32m.txt";
+	string plainFilename = "input-512m.txt";
 	if (argc > 1) 
 	{ 
 		plainFilename = argv[1];
