@@ -4,6 +4,7 @@
 #include <vector>
 #include <chrono>
 #include <inttypes.h>
+#include <Windows.h>
 
 using namespace std;
 
@@ -21,6 +22,37 @@ bool debug = false; // if true, additional messages are displayed. If false, out
 uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
 uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
 
+
+// time measurement for higher precision
+LARGE_INTEGER timerFreq_;
+LARGE_INTEGER counterAtStart_;
+
+void startTime()
+{
+	QueryPerformanceFrequency(&timerFreq_);
+	QueryPerformanceCounter(&counterAtStart_);	
+	TIMECAPS ptc;
+	UINT cbtc = 8;
+	MMRESULT result = timeGetDevCaps(&ptc, cbtc);
+	if (result != TIMERR_NOERROR)
+	{
+		cout << "result = TIMER ERROR" << endl;
+	}	
+}
+
+unsigned int calculateElapsedTime()
+{
+	if (timerFreq_.QuadPart == 0)
+	{
+		return -1;
+	}
+	else
+	{
+		LARGE_INTEGER c;
+		QueryPerformanceCounter(&c);
+		return static_cast<unsigned int>((c.QuadPart - counterAtStart_.QuadPart) * 1000 / timerFreq_.QuadPart);
+	}
+}
 
 
 /*
@@ -526,6 +558,12 @@ int main(int argc, char *argv[])
 	auto timestampStart = chrono::high_resolution_clock::now();
 	using FpMilliseconds = chrono::duration<float, std::chrono::milliseconds::period>;
 	static_assert(chrono::treat_as_floating_point<FpMilliseconds::rep>::value, "Rep required to be floating point");
+	// time init
+	timeBeginPeriod(1);
+	unsigned int lastTime = 0, newTime = 0;
+	startTime();
+	newTime = calculateElapsedTime();
+
 
 	// key definition
 	const unsigned char key[32] = { 'z', 'i', 'X', '9', '$', 'f', 'g', 'P', '1', '7', '9', 's', 'i', 'J', '%', 'o', 'a', 'Q', 'p', '!', 'e', 'K', 'z', 'v', 'W', 'b', 'c', 'T', '8', 'g', '6', '9' };
@@ -533,11 +571,14 @@ int main(int argc, char *argv[])
 
 	// subkeys preparation
 	blowfish_setkey(P, S, key, keysize);
-
+	
+	newTime = calculateElapsedTime();
 	auto timestampSubkeysGenerated = chrono::high_resolution_clock::now(); // time capture	
 	auto subkeysGeneration = FpMilliseconds(timestampSubkeysGenerated - timestampStart);
 	if (debug)
+	{
 		cout << "Subkeys generated in:\t" << subkeysGeneration.count() << " ms." << endl;
+	}		
 	else
 		cout << subkeysGeneration.count() << ";";
 
@@ -547,7 +588,7 @@ int main(int argc, char *argv[])
 	
 
 	// config input/output files:
-	string plainFilename = "input-512m.txt";
+	string plainFilename = "input-1k.txt";
 	if (argc > 1) 
 	{ 
 		plainFilename = argv[1];
@@ -601,6 +642,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+
+	newTime = calculateElapsedTime();
 	auto timestampFileLoaded = chrono::high_resolution_clock::now(); // time capture	
 	auto fileLoading = FpMilliseconds(timestampFileLoaded - timestampSubkeysGenerated);
 
@@ -637,6 +680,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	newTime = calculateElapsedTime();
 	auto timestampEncrypted = chrono::high_resolution_clock::now(); // time capture	
 	auto encryptionTime = FpMilliseconds(timestampEncrypted - timestampFileLoaded);
 
@@ -644,7 +688,7 @@ int main(int argc, char *argv[])
 		cout << "Text encrypted in\t" << encryptionTime.count() << " ms." << endl;
 	else
 	{
-		cout << encryptionTime.count() << ";";
+		cout << encryptionTime.count() - 1 << ";";
 		cout << "0;0;"; // empty value for time of transfer to/from GPU memory and queue handlng
 	}
 		
@@ -661,6 +705,7 @@ int main(int argc, char *argv[])
 	output.write(outputText, extendedFileLength);
 	output.close();
 
+	newTime = calculateElapsedTime();
 	auto timestampFileSaved = chrono::high_resolution_clock::now(); // time capture	
 	auto fileSaving = FpMilliseconds(timestampFileSaved - timestampEncrypted);
 
