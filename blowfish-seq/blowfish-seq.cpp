@@ -16,7 +16,7 @@ using namespace std;
 #define S_ROWS				4
 #define S_COLUMNS			256	
 
-bool debug = true; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
+bool debug = false; // if true, additional messages are displayed. If false, output has a propriet format for batch processing
 
 uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
 uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
@@ -528,8 +528,8 @@ int main(int argc, char *argv[])
 	static_assert(chrono::treat_as_floating_point<FpMilliseconds::rep>::value, "Rep required to be floating point");
 
 	// key definition
-	const unsigned char key[32] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
-	unsigned int keysize = 32;
+	const unsigned char key[32] = { 'z', 'i', 'X', '9', '$', 'f', 'g', 'P', '1', '7', '9', 's', 'i', 'J', '%', 'o', 'a', 'Q', 'p', '!', 'e', 'K', 'z', 'v', 'W', 'b', 'c', 'T', '8', 'g', '6', '9' };
+	unsigned int keysize = 256;
 
 	// subkeys preparation
 	blowfish_setkey(P, S, key, keysize);
@@ -542,8 +542,8 @@ int main(int argc, char *argv[])
 		cout << subkeysGeneration.count() << ";";
 
 	// input and output blocks preparation
-	unsigned char in[BLOWFISH_BLOCKSIZE] = { 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h' };
-	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ' };
+	unsigned char in[BLOWFISH_BLOCKSIZE] = { ' ' };
+	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ' };
 	
 
 	// config input/output files:
@@ -610,7 +610,11 @@ int main(int argc, char *argv[])
 		cout << "File size: \t\t" << extendedFileLength << " bytes." << endl;
 	}
 	else
-		cout << fileLoading.count() << ";";		
+	{
+		cout << fileLoading.count() << ";";
+		cout << "0;0;"; // empty values for OpenCL initialisation and kernel loading
+	}
+			
 	
 
 	// ENCRYPTION		
@@ -639,7 +643,11 @@ int main(int argc, char *argv[])
 	if (debug)
 		cout << "Text encrypted in\t" << encryptionTime.count() << " ms." << endl;
 	else
+	{
 		cout << encryptionTime.count() << ";";
+		cout << "0;"; // empty value for time of transfer to/from GPU memory
+	}
+		
 
 	// Save result to file			
 	ofstream output;
@@ -669,8 +677,7 @@ int main(int argc, char *argv[])
 		cout << "Total time elapsed:\t" << totalTime.count() << " ms." << endl;
 	else
 		cout << totalTime.count() << ";" << endl;
-
-
+		
 	delete[] outputText;
 	delete[] inputText;
 
