@@ -22,7 +22,6 @@ bool debug = false; // if true, additional messages are displayed. If false, out
 uint32_t P[BLOWFISH_ROUNDS + 2] = {0};    // Blowfish round keys
 uint32_t S[S_ROWS * S_COLUMNS] = {0};     // key dependent S-boxes
 
-
 // time measurement for higher precision
 LARGE_INTEGER timerFreq_;
 LARGE_INTEGER counterAtStart_;
@@ -337,6 +336,7 @@ static const uint32_t Svalues[4][256] = {
 		0xB74E6132L, 0xCE77E25BL, 0x578FDFE3L, 0x3AC372E6L }
 };
 
+
 /*
 * F function
 */
@@ -547,7 +547,6 @@ void printBlock(const unsigned char *block)
 
 
 
-
 int main(int argc, char *argv[])
 {
 	// time measurement
@@ -559,7 +558,6 @@ int main(int argc, char *argv[])
 	unsigned int lastTime = 0, newTime = 0;
 	startTime();
 	newTime = calculateElapsedTime();
-
 
 	// key definition
 	const unsigned char key[32] = { 'z', 'i', 'X', '9', '$', 'f', 'g', 'P', '1', '7', '9', 's', 'i', 'J', '%', 'o', 'a', 'Q', 'p', '!', 'e', 'K', 'z', 'v', 'W', 'b', 'c', 'T', '8', 'g', '6', '9' };
@@ -582,15 +580,13 @@ int main(int argc, char *argv[])
 	unsigned char in[BLOWFISH_BLOCKSIZE] = { ' ' };
 	unsigned char out[BLOWFISH_BLOCKSIZE] = { ' ' };
 	
-
 	// config input/output files:
-	string plainFilename = "input-1k.txt";
+	string plainFilename = "input-512m.txt";
 	if (argc > 1) 
 	{ 
 		plainFilename = argv[1];
 	}
 	string cryptedFilename = "crypted-" + plainFilename;	
-
 
 	// load file into memory
 	if (debug)
@@ -638,7 +634,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-
 	newTime = calculateElapsedTime();
 	auto timestampFileLoaded = chrono::high_resolution_clock::now(); // time capture	
 	auto fileLoading = FpMilliseconds(timestampFileLoaded - timestampSubkeysGenerated);
@@ -652,8 +647,7 @@ int main(int argc, char *argv[])
 	{
 		cout << fileLoading.count() << ";";
 		cout << "0;0;"; // empty values for OpenCL initialisation and kernel loading
-	}
-			
+	}			
 	
 
 	// ENCRYPTION		
@@ -686,8 +680,7 @@ int main(int argc, char *argv[])
 	{
 		cout << encryptionTime.count() << ";";
 		cout << "0;0;"; // empty value for time of transfer to/from GPU memory and queue handlng
-	}
-		
+	}		
 
 	// Save result to file			
 	ofstream output;
@@ -710,6 +703,9 @@ int main(int argc, char *argv[])
 	else
 		cout << fileSaving.count() << ";";
 
+	delete[] outputText;
+	delete[] inputText;
+
 	auto timestampStop = std::chrono::high_resolution_clock::now();
 	auto totalTime = FpMilliseconds(timestampStop - timestampStart);
 	
@@ -717,14 +713,10 @@ int main(int argc, char *argv[])
 	if (debug)
 		cout << "Total time elapsed:\t" << totalTime.count() << " ms." << endl;
 	else
-		cout << totalTime.count() << ";" << endl;
-		
-	delete[] outputText;
-	delete[] inputText;
+		cout << totalTime.count() << ";" << endl;	
 
 	if (debug)
 		system("PAUSE");
 
 	return 0;
 }
-
